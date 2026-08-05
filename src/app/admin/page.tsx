@@ -9,9 +9,7 @@ export default function AdminPage() {
   const [formData, setFormData] = useState({
     unitId: '123e4567-e89b-12d3-a456-426614174000', // Mock UUID for MVP
     moduleName: 'Module 1',
-    unitTheme: 'Greetings',
-    coreVocabulary: 'hello, hi, good, morning, afternoon',
-    targetSentences: 'How are you?, I am fine.',
+    kbUrl: 'https://test.zyddff.top/kb/English/mt_jh_eng_wy_9a01_001.md',
     customSetting: 'At the school gate, friendly tone.',
   });
 
@@ -22,11 +20,7 @@ export default function AdminPage() {
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formData,
-          coreVocabulary: formData.coreVocabulary.split(',').map(s => s.trim()),
-          targetSentences: formData.targetSentences.split(',').map(s => s.trim()),
-        }),
+        body: JSON.stringify(formData),
       });
       const data = await res.json();
       setResult(data);
@@ -54,31 +48,15 @@ export default function AdminPage() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">单元主题 (Theme)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">知识点 R2 Markdown 链接 (Knowledge Base URL)</label>
             <input 
               type="text" 
+              placeholder="e.g. https://test.zyddff.top/kb/English/mt_jh_eng_wy_9a01_001.md"
               className="w-full border-gray-300 rounded-md shadow-sm p-2 border focus:ring-blue-500 focus:border-blue-500"
-              value={formData.unitTheme}
-              onChange={(e) => setFormData({...formData, unitTheme: e.target.value})}
+              value={formData.kbUrl}
+              onChange={(e) => setFormData({...formData, kbUrl: e.target.value})}
             />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">核心词汇 (Core Vocab - 逗号分隔)</label>
-            <textarea 
-              className="w-full border-gray-300 rounded-md shadow-sm p-2 border focus:ring-blue-500 focus:border-blue-500"
-              rows={2}
-              value={formData.coreVocabulary}
-              onChange={(e) => setFormData({...formData, coreVocabulary: e.target.value})}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">目标句型 (Target Sentences - 逗号分隔)</label>
-            <textarea 
-              className="w-full border-gray-300 rounded-md shadow-sm p-2 border focus:ring-blue-500 focus:border-blue-500"
-              rows={2}
-              value={formData.targetSentences}
-              onChange={(e) => setFormData({...formData, targetSentences: e.target.value})}
-            />
+            <p className="text-xs text-gray-500 mt-1">系统会自动读取该 Markdown 文件作为生成剧本的词汇句型依据。</p>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">自定义情景/角色设定</label>

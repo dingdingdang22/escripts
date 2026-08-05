@@ -11,25 +11,36 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 export async function POST(req: Request) {
   try {
-    const { unitId, moduleName, unitTheme, coreVocabulary, targetSentences, customSetting } = await req.json();
+    const { unitId, moduleName, kbUrl, customSetting } = await req.json();
 
-    if (!unitId || !unitTheme) {
-      return NextResponse.json({ error: 'Missing parameters' }, { status: 400 });
+    if (!unitId || !kbUrl) {
+      return NextResponse.json({ error: 'Missing parameters (kbUrl is required)' }, { status: 400 });
     }
 
-    // 1. Generate Scripts using Gemini
+    // 1. Fetch Markdown Content from R2
+    const mdRes = await fetch(kbUrl);
+    if (!mdRes.ok) {
+       return NextResponse.json({ error: 'Failed to fetch knowledge base markdown from provided URL' }, { status: 400 });
+    }
+    const kbContent = await mdRes.text();
+
+    // 2. Generate Scripts using Gemini
     const prompt = `
       You are an expert English teacher creating speaking practice dialogues for students learning the FLTRP (外研版) curriculum.
       Module: ${moduleName}
-      Theme: ${unitTheme}
-      Core Vocabulary: ${coreVocabulary.join(', ')}
-      Target Sentences: ${targetSentences.join(', ')}
       Custom Character Setting: ${customSetting}
+      
+      Below is the curriculum knowledge point content in Markdown format. 
+      It contains the core vocabulary and target sentences for this specific lesson:
+      
+      --- KNOWLEDGE BASE ---
+      ${kbContent}
+      ----------------------
       
       Generate exactly 3 unique, independent dialogue scripts. 
       Constraints:
-      - 100% coverage of core vocabulary and target sentences across the scripts.
-      - Difficulty should be appropriate for the grade level.
+      - 100% coverage of the core vocabulary and target sentences extracted from the provided knowledge base.
+      - Difficulty should be appropriate for the grade level inferred from the knowledge base.
       - One character MUST be named 'System' (this is the AI/teacher), and the other 'User' (this is the student).
       
       Return ONLY a JSON array of 3 script objects. Do not include markdown formatting or backticks.
