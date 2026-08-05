@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
 import { v4 as uuidv4 } from 'uuid';
 
 const accountId = process.env.CLOUDFLARE_ACCOUNT_ID || '';
@@ -36,4 +36,17 @@ export async function uploadAudioToR2(buffer: Buffer, filename?: string): Promis
   await r2Client.send(command);
   
   return `${PUBLIC_R2_URL}/${fileId}`;
+}
+
+/**
+ * 列出 R2 中的知识点 Markdown 文件
+ */
+export async function listKnowledgeBaseFiles(prefix: string = 'kb/English/') {
+  const command = new ListObjectsV2Command({
+    Bucket: BUCKET_NAME,
+    Prefix: prefix,
+  });
+  
+  const response = await r2Client.send(command);
+  return response.Contents || [];
 }

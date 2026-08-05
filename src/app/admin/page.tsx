@@ -1,17 +1,37 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 
 export default function AdminPage() {
   const [loading, setLoading] = useState(false);
+  const [fetchingFiles, setFetchingFiles] = useState(true);
   const [result, setResult] = useState<any>(null);
+  const [kbFiles, setKbFiles] = useState<any[]>([]);
 
   const [formData, setFormData] = useState({
     unitId: '123e4567-e89b-12d3-a456-426614174000', // Mock UUID for MVP
     moduleName: 'Module 1',
-    kbUrl: 'https://test.zyddff.top/kb/English/mt_jh_eng_wy_9a01_001.md',
+    kbUrl: '',
     customSetting: 'At the school gate, friendly tone.',
   });
+
+  useEffect(() => {
+    async function loadFiles() {
+      try {
+        const res = await fetch('/api/kb-files');
+        const data = await res.json();
+        if (data.success && data.files.length > 0) {
+          setKbFiles(data.files);
+          setFormData(prev => ({ ...prev, kbUrl: data.files[0].url }));
+        }
+      } catch (e) {
+        console.error('Failed to load kb files', e);
+      } finally {
+        setFetchingFiles(false);
+      }
+    }
+    loadFiles();
+  }, []);
 
   const handleGenerate = async () => {
     setLoading(true);
@@ -48,15 +68,32 @@ export default function AdminPage() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">知识点 R2 Markdown 链接 (Knowledge Base URL)</label>
-            <input 
-              type="text" 
-              placeholder="e.g. https://test.zyddff.top/kb/English/mt_jh_eng_wy_9a01_001.md"
-              className="w-full border-gray-300 rounded-md shadow-sm p-2 border focus:ring-blue-500 focus:border-blue-500"
-              value={formData.kbUrl}
-              onChange={(e) => setFormData({...formData, kbUrl: e.target.value})}
-            />
-            <p className="text-xs text-gray-500 mt-1">系统会自动读取该 Markdown 文件作为生成剧本的词汇句型依据。</p>
+            <label className="block text-sm font-medium text-gray-700 mb-1">选择知识点主题 (Select Knowledge Base)</label>
+            {fetchingFiles ? (
+              <div className="flex items-center space-x-2 text-sm text-gray-500">
+                <Loader2 className="animate-spin h-4 w-4" /> <span>加载云端知识点...</span>
+              </div>
+            ) : (
+              <select 
+                className="w-full border-gray-300 rounded-md shadow-sm p-2 border focus:ring-blue-500 focus:border-blue-500"
+                value={formData.kbUrl}
+                onChange={(e) => {
+                  const selectedFile = kbFiles.find(f => f.url === e.target.value);
+                  setFormData({
+                    ...formData, 
+                    kbUrl: e.target.value,
+                    // Auto-fill module name based on selected file label
+                    moduleName: selectedFile ? selectedFile.label : formData.moduleName
+                  });
+                }}
+              >
+                {kbFiles.length === 0 && <option value="">未找到任何文件</option>}
+                {kbFiles.map((f, i) => (
+                  <option key={i} value={f.url}>{f.label} ({f.filename})</option>
+                ))}
+              </select>
+            )}
+            <p className="text-xs text-gray-500 mt-1">下拉菜单自动读取 R2 存储桶中的 `kb/English/` 目录。</p>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">自定义情景/角色设定</label>
