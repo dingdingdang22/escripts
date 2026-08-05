@@ -1,0 +1,234 @@
+'use client';
+import { useState, useEffect, useRef } from 'react';
+import { motion } from 'framer-motion';
+import { Mic, MicOff, CheckCircle2, PlayCircle } from 'lucide-react';
+
+interface DialogueLine {
+  id: string;
+  role: 'system' | 'user';
+  text: string;
+  audio_url?: string;
+}
+
+interface ConversationPracticeProps {
+  dialogues: DialogueLine[];
+  onComplete: (score: number) => void;
+}
+
+export default function ConversationPractice({ dialogues, onComplete }: ConversationPracticeProps) {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recognizedText, setRecognizedText] = useState('');
+  
+  // Ref for the system audio player
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const recognitionRef = useRef<any>(null);
+
+  const currentLine = dialogues[currentIndex];
+
+  useEffect(() => {
+    // Setup Speech Recognition
+    if (typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+
+      recognition.onresult = (event: any) => {
+        let interimTranscript = '';
+        let finalTranscript = '';
+
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            finalTranscript += event.results[i][0].transcript;
+          } else {
+            interimTranscript += event.results[i][0].transcript;
+          }
+        }
+        
+        setRecognizedText(prev => prev + ' ' + finalTranscript + interimTranscript);
+      };
+
+      recognition.onerror = (event: any) => {
+        console.error('Speech recognition error', event.error);
+        setIsRecording(false);
+      };
+
+      recognition.onend = () => {
+        setIsRecording(false);
+      };
+
+      recognitionRef.current = recognition;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (currentLine && currentLine.role === 'system') {
+      playSystemAudio();
+    } else if (currentLine && currentLine.role === 'user') {
+      startRecording();
+    }
+    // eslint-disable-next-line react-hooks/exhaustivedeps
+  }, [currentIndex, currentLine]);
+
+  const playSystemAudio = () => {
+    if (currentLine.audio_url) {
+      if (!audioRef.current) {
+        audioRef.current = new Audio(currentLine.audio_url);
+      } else {
+        audioRef.current.src = currentLine.audio_url;
+      }
+      setIsPlayingAudio(true);
+      audioRef.current.play();
+      audioRef.current.onended = () => {
+        setIsPlayingAudio(false);
+        // Automatically move to the next turn after audio finishes
+        setTimeout(() => handleNext(), 1000);
+      };
+    } else {
+      // Simulate reading time if no audio
+      setIsPlayingAudio(true);
+      setTimeout(() => {
+        setIsPlayingAudio(false);
+        handleNext();
+      }, currentLine.text.length * 50 + 1000);
+    }
+  };
+
+  const startRecording = () => {
+    setRecognizedText('');
+    setIsRecording(true);
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.start();
+      } catch (e) {
+        console.log('Recognition already started');
+      }
+    }
+  };
+
+  const stopRecordingAndEvaluate = () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+    }
+    setIsRecording(false);
+    
+    // Evaluate (Simple word matching MVP)
+    const targetWords = currentLine.text.toLowerCase().replace(/[^\w\s]/gi, '').split(/\s+/);
+    const spokenWords = recognizedText.toLowerCase().replace(/[^\w\s]/gi, '').split(/\s+/);
+    
+    let matchCount = 0;
+    targetWords.forEach(tw => {
+      if (spokenWords.includes(tw)) matchCount++;
+    });
+    
+    const accuracy = Math.round((matchCount / targetWords.length) * 100);
+    alert(`Your Accuracy: ${accuracy}%`);
+    
+    setTimeout(() => handleNext(), 1500);
+  };
+
+  const handleNext = () => {
+    if (currentIndex < dialogues.length - 1) {
+      setCurrentIndex(currentIndex + 1);
+    } else {
+      onComplete(100); // Pass final score
+    }
+  };
+
+  // Logic to highlight correct words
+  const renderUserText = (text: string) => {
+    const targetWords = text.split(/\s+/);
+    const spokenWords = recognizedText.toLowerCase().replace(/[^\w\s]/gi, '').split(/\s+/);
+
+    return targetWords.map((word, idx) => {
+      const cleanWord = word.toLowerCase().replace(/[^\w\s]/gi, '');
+      const isMatched = spokenWords.includes(cleanWord);
+      
+      return (
+        <motion.span
+          key={idx}
+          className={`inline-block mr-2 ${isMatched ? 'text-green-500 font-bold' : 'text-gray-700'}`}
+          animate={{ scale: isMatched ? 1.2 : 1 }}
+          transition={{ type: 'spring', stiffness: 300 }}
+        >
+          {word}
+        </motion.span>
+      );
+    });
+  };
+
+  // Streaming text simulation for System role
+  const renderSystemText = (text: string) => {
+    const chars = text.split('');
+    return chars.map((char, index) => (
+      <motion.span
+        key={index}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.1, delay: index * 0.05 }}
+      >
+        {char}
+      </motion.span>
+    ));
+  };
+
+  if (!currentLine) return null;
+
+  return (
+    <div className="flex flex-col items-center justify-center w-full max-w-3xl mx-auto p-6 bg-white rounded-3xl shadow-xl min-h-[500px]">
+      
+      {/* Progress */}
+      <div className="w-full bg-gray-200 rounded-full h-2 mb-8">
+        <div 
+          className="bg-blue-600 h-2 rounded-full transition-all duration-500" 
+          style={{ width: `${((currentIndex + 1) / dialogues.length) * 100}%` }}
+        ></div>
+      </div>
+
+      <div className="flex-1 w-full flex flex-col justify-center items-center text-center space-y-8">
+        
+        {currentLine.role === 'system' ? (
+          <div className="animate-fade-in-up">
+            <div className="text-sm font-semibold text-blue-500 uppercase tracking-widest mb-4 flex items-center justify-center">
+              <PlayCircle className={`w-5 h-5 mr-2 ${isPlayingAudio ? 'animate-pulse text-blue-600' : ''}`} />
+              Teacher
+            </div>
+            <h2 className="text-4xl font-extrabold text-gray-800 leading-tight">
+              {isPlayingAudio ? renderSystemText(currentLine.text) : currentLine.text}
+            </h2>
+          </div>
+        ) : (
+          <div className="animate-fade-in-up w-full">
+            <div className="text-sm font-semibold text-green-500 uppercase tracking-widest mb-4 flex items-center justify-center">
+              {isRecording ? (
+                <><Mic className="w-5 h-5 mr-2 animate-pulse text-red-500" /> Your Turn (Recording...)</>
+              ) : (
+                <><MicOff className="w-5 h-5 mr-2" /> Your Turn</>
+              )}
+            </div>
+            <h2 className="text-4xl font-extrabold leading-tight py-4 px-2 min-h-[120px]">
+              {renderUserText(currentLine.text)}
+            </h2>
+            
+            <p className="text-gray-400 mt-4 italic text-sm">
+              I heard: "{recognizedText}"
+            </p>
+
+            {isRecording && (
+              <button 
+                onClick={stopRecordingAndEvaluate}
+                className="mt-8 bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-transform transform hover:scale-105 flex items-center mx-auto"
+              >
+                <CheckCircle2 className="w-5 h-5 mr-2" /> Finish Reading
+              </button>
+            )}
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
+}
