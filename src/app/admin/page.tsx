@@ -99,7 +99,7 @@ export default function AdminPage() {
                 ))}
               </select>
             )}
-            <p className="text-xs text-gray-500 mt-1">下拉菜单自动读取 R2 存储桶中的 `kb/English/` 目录。</p>
+            <p className="text-xs text-gray-500 mt-1">下拉菜单自动读取 R2 存储桶中的所有 Markdown 文件。</p>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">自定义情景/角色设定</label>
