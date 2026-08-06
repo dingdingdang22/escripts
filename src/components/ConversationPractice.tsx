@@ -139,7 +139,7 @@ export default function ConversationPractice({ dialogues, userRole = 'role_a', o
     const accuracy = Math.round((matchCount / targetWords.length) * 100);
     setUserScores(prev => [...prev, accuracy]);
     
-    setTimeout(() => handleNext(), 1000);
+    handleNext();
   };
 
   const handleNext = () => {
@@ -249,14 +249,12 @@ export default function ConversationPractice({ dialogues, userRole = 'role_a', o
             
 
 
-            {isRecording && (
-              <button 
-                onClick={stopRecordingAndEvaluate}
-                className="mt-8 bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-transform transform hover:scale-105 flex items-center mx-auto"
-              >
-                <CheckCircle2 className="w-5 h-5 mr-2" /> Finish Reading
-              </button>
-            )}
+            <button 
+              onClick={stopRecordingAndEvaluate}
+              className="mt-8 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3.5 px-10 rounded-full shadow-lg hover:shadow-xl transition-all transform hover:scale-105 flex items-center mx-auto text-base"
+            >
+              <CheckCircle2 className="w-5 h-5 mr-2" /> 朗读完毕，进入下一句 ➔
+            </button>
           </div>
         )}
 
