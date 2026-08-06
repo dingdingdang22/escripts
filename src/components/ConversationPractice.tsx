@@ -119,11 +119,20 @@ export default function ConversationPractice({ dialogues, userRole = 'role_a', o
     }
   };
 
-  const [userScores, setUserScores] = useState<number[]>([]);
+  const hasEvaluatedRef = useRef(false);
+
+  useEffect(() => {
+    hasEvaluatedRef.current = false;
+  }, [currentIndex]);
 
   const stopRecordingAndEvaluate = () => {
+    if (hasEvaluatedRef.current) return;
+    hasEvaluatedRef.current = true;
+
     if (recognitionRef.current) {
-      recognitionRef.current.stop();
+      try {
+        recognitionRef.current.stop();
+      } catch (e) {}
     }
     setIsRecording(false);
     
@@ -141,6 +150,33 @@ export default function ConversationPractice({ dialogues, userRole = 'role_a', o
     
     handleNext();
   };
+
+  // Auto-advance detection: when user matches >= 85% of sentence words, auto next!
+  useEffect(() => {
+    if (!isUserTurn || !currentLine || hasEvaluatedRef.current) return;
+
+    const targetWords = currentLine.text.toLowerCase().replace(/[^\w\s]/gi, '').split(/\s+/).filter(Boolean);
+    const spokenWords = recognizedText.toLowerCase().replace(/[^\w\s]/gi, '').split(/\s+/).filter(Boolean);
+
+    if (targetWords.length === 0) return;
+
+    let matchCount = 0;
+    targetWords.forEach(tw => {
+      if (spokenWords.includes(tw)) matchCount++;
+    });
+
+    const matchRatio = matchCount / targetWords.length;
+
+    // Trigger auto-advance when 85%+ words are correctly pronounced
+    if (matchRatio >= 0.85) {
+      const timer = setTimeout(() => {
+        if (!hasEvaluatedRef.current) {
+          stopRecordingAndEvaluate();
+        }
+      }, 600); // 600ms brief pause for user feedback
+      return () => clearTimeout(timer);
+    }
+  }, [recognizedText, isUserTurn, currentLine]);
 
   const handleNext = () => {
     if (currentIndex < dialogues.length - 1) {
