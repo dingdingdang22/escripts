@@ -175,7 +175,19 @@ export default function ConversationPractice({ dialogues, onComplete }: Conversa
     ));
   };
 
-  if (!currentLine) return null;
+  if (!currentLine) {
+    return (
+      <div className="flex flex-col items-center justify-center w-full max-w-xl mx-auto p-8 bg-white rounded-3xl shadow-xl text-center">
+        <p className="text-gray-500 font-medium mb-4">该剧本暂无有效对话台词。</p>
+        <button 
+          onClick={() => window.location.reload()}
+          className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-full shadow"
+        >
+          重新抽取
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col items-center justify-center w-full max-w-3xl mx-auto p-6 bg-white rounded-3xl shadow-xl min-h-[500px]">

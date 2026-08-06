@@ -6,47 +6,36 @@ export async function GET() {
     // Note: ORDER BY random() can be slow on large tables, but it's perfect for our MVP.
     // In the future, we can optimize this (e.g., fetching a random ID within range).
     
-    // 1. Fetch 1 random script
-    const { data: randomScripts, error: scriptErr } = await supabase
+    // Fetch scripts with their dialogues embedded
+    const { data: scripts, error: scriptErr } = await supabase
       .from('scripts')
-      .select('*')
-      // Supabase PostgREST doesn't expose random() natively in standard select, 
-      // but we can fetch a pool of recent ones and pick randomly in memory,
-      // OR use a custom Postgres RPC function. 
-      // For simplicity in Next.js backend, let's fetch up to 100 recent ones and pick one randomly in JS.
+      .select('*, dialogues(*)')
       .order('created_at', { ascending: false })
-      .limit(100);
+      .limit(50);
 
     if (scriptErr) {
       console.error('Failed to fetch scripts:', scriptErr);
-      return NextResponse.json({ error: 'Database error' }, { status: 500 });
+      return NextResponse.json({ error: 'Database error: ' + scriptErr.message }, { status: 500 });
     }
 
-    if (!randomScripts || randomScripts.length === 0) {
-      return NextResponse.json({ error: 'No scripts found. Please generate some scripts in the admin panel first.' }, { status: 404 });
+    // Filter to only scripts that actually have dialogues
+    const validScripts = (scripts || []).filter((s: any) => Array.isArray(s.dialogues) && s.dialogues.length > 0);
+
+    if (validScripts.length === 0) {
+      return NextResponse.json({ 
+        error: '数据库中未找到包含台词的有效剧本。请前往管理后台重新生成一个新剧本！' 
+      }, { status: 404 });
     }
 
-    // Pick one randomly
-    const randomScript = randomScripts[Math.floor(Math.random() * randomScripts.length)];
+    // Pick one valid script randomly
+    const randomScript = validScripts[Math.floor(Math.random() * validScripts.length)];
 
-    // 2. Fetch all dialogues for this script, ordered by sequence
-    const { data: dialogues, error: dialoguesErr } = await supabase
-      .from('dialogues')
-      .select('*')
-      .eq('script_id', randomScript.id)
-      .order('sequence', { ascending: true });
-
-    if (dialoguesErr) {
-       console.error('Failed to fetch dialogues:', dialoguesErr);
-       return NextResponse.json({ error: 'Failed to fetch dialogues' }, { status: 500 });
-    }
+    // Sort dialogues by sequence
+    randomScript.dialogues.sort((a: any, b: any) => (a.sequence || 0) - (b.sequence || 0));
 
     return NextResponse.json({
       success: true,
-      script: {
-        ...randomScript,
-        dialogues: dialogues || []
-      }
+      script: randomScript
     });
 
   } catch (error: any) {
