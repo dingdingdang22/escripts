@@ -21,6 +21,7 @@ export default function ConversationPractice({ dialogues, userRole = 'role_a', o
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [recognizedText, setRecognizedText] = useState('');
+  const [userScores, setUserScores] = useState<number[]>([]);
   
   // Ref for the system audio player
   const audioRef = useRef<HTMLAudioElement | null>(null);
