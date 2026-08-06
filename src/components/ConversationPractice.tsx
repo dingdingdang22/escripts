@@ -119,6 +119,8 @@ export default function ConversationPractice({ dialogues, userRole = 'role_a', o
     }
   };
 
+  const [userScores, setUserScores] = useState<number[]>([]);
+
   const stopRecordingAndEvaluate = () => {
     if (recognitionRef.current) {
       recognitionRef.current.stop();
@@ -135,39 +137,49 @@ export default function ConversationPractice({ dialogues, userRole = 'role_a', o
     });
     
     const accuracy = Math.round((matchCount / targetWords.length) * 100);
-    alert(`Your Accuracy: ${accuracy}%`);
+    setUserScores(prev => [...prev, accuracy]);
     
-    setTimeout(() => handleNext(), 1500);
+    setTimeout(() => handleNext(), 1000);
   };
 
   const handleNext = () => {
     if (currentIndex < dialogues.length - 1) {
       setCurrentIndex(currentIndex + 1);
     } else {
-      onComplete(100); // Pass final score
+      // Calculate overall average score
+      const totalScore = userScores.length > 0
+        ? Math.round(userScores.reduce((a, b) => a + b, 0) / userScores.length)
+        : 100;
+      onComplete(totalScore);
     }
   };
 
-  // Logic to highlight correct words
+  // Logic to highlight correct words cleanly without font overlap
   const renderUserText = (text: string) => {
     const targetWords = text.split(/\s+/);
     const spokenWords = recognizedText.toLowerCase().replace(/[^\w\s]/gi, '').split(/\s+/);
 
-    return targetWords.map((word, idx) => {
-      const cleanWord = word.toLowerCase().replace(/[^\w\s]/gi, '');
-      const isMatched = spokenWords.includes(cleanWord);
-      
-      return (
-        <motion.span
-          key={idx}
-          className={`inline-block mr-2 ${isMatched ? 'text-green-500 font-bold' : 'text-gray-700'}`}
-          animate={{ scale: isMatched ? 1.2 : 1 }}
-          transition={{ type: 'spring', stiffness: 300 }}
-        >
-          {word}
-        </motion.span>
-      );
-    });
+    return (
+      <div className="flex flex-wrap justify-center gap-2 leading-relaxed max-w-2xl mx-auto py-2">
+        {targetWords.map((word, idx) => {
+          const cleanWord = word.toLowerCase().replace(/[^\w\s]/gi, '');
+          const isMatched = spokenWords.includes(cleanWord);
+          
+          return (
+            <span
+              key={idx}
+              className={`inline-block px-1.5 py-0.5 rounded-lg transition-colors duration-300 ${
+                isMatched 
+                  ? 'text-emerald-600 bg-emerald-50 font-bold border border-emerald-200 shadow-sm' 
+                  : 'text-gray-800 font-medium'
+              }`}
+            >
+              {word}
+            </span>
+          );
+        })}
+      </div>
+    );
   };
 
   // Streaming text simulation for System role
@@ -235,9 +247,7 @@ export default function ConversationPractice({ dialogues, userRole = 'role_a', o
               {renderUserText(currentLine.text)}
             </h2>
             
-            <p className="text-gray-400 mt-4 italic text-sm">
-              I heard: "{recognizedText}"
-            </p>
+
 
             {isRecording && (
               <button 

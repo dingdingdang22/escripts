@@ -241,7 +241,11 @@ export default function PracticePage() {
             <span className="text-6xl">🎉</span>
           </div>
           <h2 className="text-3xl font-black text-gray-900">同伴对话练习完成！</h2>
-          <p className="text-lg text-gray-600">干得漂亮！你已成功完成了本次课文口语互动。</p>
+          <div className="bg-blue-50 py-3 px-6 rounded-2xl inline-block border border-blue-100">
+            <span className="text-sm font-semibold text-blue-600 uppercase tracking-wider block">综合发音准确度分</span>
+            <span className="text-4xl font-extrabold text-blue-700">{score}%</span>
+          </div>
+          <p className="text-gray-600">干得漂亮！你已成功完成了本次课文口语互动。</p>
           
           <div className="flex flex-col space-y-3 pt-6">
             <button 
