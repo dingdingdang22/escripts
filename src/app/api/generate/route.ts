@@ -68,7 +68,7 @@ export async function POST(req: Request) {
       ]
     `;
 
-    const modelName = process.env.GEMINI_MODEL || 'gemini-flash';
+    const modelName = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
     const response = await ai.models.generateContent({
       model: modelName, 
       contents: prompt,
