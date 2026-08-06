@@ -7,7 +7,11 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const apiKey = process.env.GEMINI_API_KEY;
+if (!apiKey) {
+  console.warn('GEMINI_API_KEY is not set in environment variables');
+}
+const ai = new GoogleGenAI(apiKey ? { apiKey } : {});
 
 export async function POST(req: Request) {
   try {
@@ -58,7 +62,7 @@ export async function POST(req: Request) {
     `;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-pro', // Using gemini-2.5-pro for high quality structure
+      model: 'gemini-2.5-flash', 
       contents: prompt,
     });
     
