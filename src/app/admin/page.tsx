@@ -20,12 +20,18 @@ export default function AdminPage() {
       try {
         const res = await fetch('/api/kb-files');
         const data = await res.json();
-        if (data.success && data.files.length > 0) {
-          setKbFiles(data.files);
-          setFormData(prev => ({ ...prev, kbUrl: data.files[0].url }));
+        if (data.success) {
+          if (data.files.length > 0) {
+            setKbFiles(data.files);
+            setFormData(prev => ({ ...prev, kbUrl: data.files[0].url }));
+          }
+        } else {
+          console.error('API Error:', data.error);
+          setResult({ error: `R2 文件加载失败: ${data.error}` });
         }
-      } catch (e) {
+      } catch (e: any) {
         console.error('Failed to load kb files', e);
+        setResult({ error: `网络请求失败: ${e.message}` });
       } finally {
         setFetchingFiles(false);
       }
