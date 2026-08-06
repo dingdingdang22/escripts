@@ -5,17 +5,18 @@ import { Mic, MicOff, CheckCircle2, PlayCircle } from 'lucide-react';
 
 interface DialogueLine {
   id: string;
-  role: 'system' | 'user';
+  role: string;
   text: string;
   audio_url?: string;
 }
 
 interface ConversationPracticeProps {
   dialogues: DialogueLine[];
+  userRole?: string;
   onComplete: (score: number) => void;
 }
 
-export default function ConversationPractice({ dialogues, onComplete }: ConversationPracticeProps) {
+export default function ConversationPractice({ dialogues, userRole = 'role_a', onComplete }: ConversationPracticeProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -26,6 +27,13 @@ export default function ConversationPractice({ dialogues, onComplete }: Conversa
   const recognitionRef = useRef<any>(null);
 
   const currentLine = dialogues[currentIndex];
+
+  // Determine if it is user's turn
+  const isUserTurn = currentLine && (
+    currentLine.role === userRole || 
+    (userRole === 'user' && currentLine.role === 'user') ||
+    (userRole === 'role_a' && currentLine.role === 'system') // backward compatibility
+  );
 
   useEffect(() => {
     // Setup Speech Recognition
@@ -65,13 +73,15 @@ export default function ConversationPractice({ dialogues, onComplete }: Conversa
   }, []);
 
   useEffect(() => {
-    if (currentLine && currentLine.role === 'system') {
-      playSystemAudio();
-    } else if (currentLine && currentLine.role === 'user') {
-      startRecording();
+    if (currentLine) {
+      if (!isUserTurn) {
+        playSystemAudio();
+      } else {
+        startRecording();
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustivedeps
-  }, [currentIndex, currentLine]);
+  }, [currentIndex, currentLine, isUserTurn]);
 
   const playSystemAudio = () => {
     if (currentLine.audio_url) {
@@ -202,11 +212,11 @@ export default function ConversationPractice({ dialogues, onComplete }: Conversa
 
       <div className="flex-1 w-full flex flex-col justify-center items-center text-center space-y-8">
         
-        {currentLine.role === 'system' ? (
+        {!isUserTurn ? (
           <div className="animate-fade-in-up">
             <div className="text-sm font-semibold text-blue-500 uppercase tracking-widest mb-4 flex items-center justify-center">
               <PlayCircle className={`w-5 h-5 mr-2 ${isPlayingAudio ? 'animate-pulse text-blue-600' : ''}`} />
-              Teacher
+              AI Partner ({currentLine.role?.toUpperCase()})
             </div>
             <h2 className="text-4xl font-extrabold text-gray-800 leading-tight">
               {isPlayingAudio ? renderSystemText(currentLine.text) : currentLine.text}

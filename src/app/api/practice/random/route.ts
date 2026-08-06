@@ -1,15 +1,21 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
-    // Note: ORDER BY random() can be slow on large tables, but it's perfect for our MVP.
-    // In the future, we can optimize this (e.g., fetching a random ID within range).
-    
+    const { searchParams } = new URL(req.url);
+    const selectedModule = searchParams.get('module_name');
+
     // Fetch scripts with their dialogues embedded
-    const { data: scripts, error: scriptErr } = await supabase
+    let query = supabase
       .from('scripts')
-      .select('*, dialogues(*)')
+      .select('*, dialogues(*)');
+
+    if (selectedModule && selectedModule !== 'all') {
+      query = query.eq('module_name', selectedModule);
+    }
+
+    const { data: scripts, error: scriptErr } = await query
       .order('created_at', { ascending: false })
       .limit(50);
 

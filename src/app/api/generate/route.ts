@@ -32,7 +32,7 @@ export async function POST(req: Request) {
       }
     }
 
-    // 2. Generate Scripts using Gemini
+    // 2. Generate Scripts using Gemini (Student-to-Student Dialogue)
     const prompt = `
       You are an expert English teacher creating speaking practice dialogues for students learning the FLTRP (外研版) curriculum.
       Module: ${moduleName}
@@ -45,13 +45,13 @@ export async function POST(req: Request) {
       ${kbContent}
       ----------------------
       
-      Generate exactly 3 unique, independent dialogue scripts. 
+      Generate exactly 3 unique, independent dialogue scripts between TWO STUDENTS (e.g. Li Hua and Meimei, or Student A and Student B).
       Constraints:
       - 100% coverage of the core vocabulary and target sentences extracted from the provided knowledge base content.
       - Difficulty should be appropriate for the grade level inferred from the knowledge base content.
-      - One character MUST be named 'System' (this is the AI/teacher), and the other 'User' (this is the student).
-      - Based on the custom setting, determine if the 'System' (teacher) character should be male or female, and set 'teacher_gender'.
-      - Dynamically determine a descriptive 'title' based on the grade, theme, and key points covered. Do NOT use generic names like "Script Title 1".
+      - The dialogue MUST be a peer conversation between two student roles: "role_a" and "role_b".
+      - Provide friendly character names for role_a (e.g. "Li Hua") and role_b (e.g. "Meimei").
+      - Dynamically determine a descriptive 'title' based on the grade, theme, and key points covered.
       
       Return ONLY a JSON array of 3 script objects. Do not include markdown formatting or backticks.
       Format:
@@ -59,10 +59,11 @@ export async function POST(req: Request) {
         {
           "title": "Grade 9 - Unit 1 - Introduction",
           "difficulty_level": "easy",
-          "teacher_gender": "female",
+          "role_a_name": "Li Hua",
+          "role_b_name": "Meimei",
           "dialogues": [
-            { "sequence": 1, "role": "system", "text": "Hello! How are you today?" },
-            { "sequence": 2, "role": "user", "text": "I am fine, thank you." }
+            { "sequence": 1, "role": "role_a", "text": "Hello Meimei! How are you today?" },
+            { "sequence": 2, "role": "role_b", "text": "I am fine, Li Hua! Are you ready for school?" }
           ]
         }
       ]
@@ -75,17 +76,17 @@ export async function POST(req: Request) {
     });
     
     let resultText = response.text || "[]";
-    // Clean up potential markdown formatting
     resultText = resultText.replace(/^```json\s*/, '').replace(/```\s*$/, '').trim();
     
     const scriptsData = JSON.parse(resultText);
     const results = [];
 
-    // 2. Process each script
+    // Pre-initialize TTS synthesis engines for both roles
+    const ttsRoleA = new EdgeTTS({ voice: 'en-US-AriaNeural' }); // Female Voice
+    const ttsRoleB = new EdgeTTS({ voice: 'en-US-GuyNeural' });  // Male Voice
+
+    // 3. Process each script
     for (const scriptData of scriptsData) {
-      // Set TTS Voice based on generated gender
-      const voice = scriptData.teacher_gender === 'male' ? 'en-US-GuyNeural' : 'en-US-AriaNeural';
-      const tts = new EdgeTTS({ voice });
       // Save Script Metadata to Supabase
       const { data: scriptRecord, error: scriptErr } = await supabase
         .from('scripts')
@@ -93,30 +94,29 @@ export async function POST(req: Request) {
           unit_id: unitId,
           module_name: moduleName,
           title: scriptData.title,
-          custom_character_setting: customSetting,
+          custom_character_setting: `Role A: ${scriptData.role_a_name || 'Student A'}, Role B: ${scriptData.role_b_name || 'Student B'}`,
           difficulty_level: scriptData.difficulty_level,
-          teacher_gender: scriptData.teacher_gender
+          teacher_gender: 'mixed'
         })
         .select()
         .single();
 
       if (scriptErr) throw scriptErr;
 
-      // 3. Process each dialogue line and generate TTS for 'system' role
+      // Process each dialogue line and generate TTS for BOTH roles
       for (const line of scriptData.dialogues) {
         let r2Url = null;
 
-        if (line.role === 'system') {
-          // Generate TTS
-          const tempFilePath = path.join(os.tmpdir(), `tts-${Date.now()}.mp3`);
-          await tts.ttsPromise(line.text, tempFilePath);
-          
-          // Read buffer and upload
+        const activeTts = line.role === 'role_b' ? ttsRoleB : ttsRoleA;
+        const tempFilePath = path.join(os.tmpdir(), `tts-${Date.now()}-${Math.random().toString(36).substring(7)}.mp3`);
+        
+        try {
+          await activeTts.ttsPromise(line.text, tempFilePath);
           const audioBuffer = fs.readFileSync(tempFilePath);
           r2Url = await uploadAudioToR2(audioBuffer);
-          
-          // Clean up temp file
           fs.unlinkSync(tempFilePath);
+        } catch (ttsError) {
+          console.error(`TTS generation failed for line "${line.text}":`, ttsError);
         }
 
         // Save Dialogue to Supabase
@@ -129,6 +129,7 @@ export async function POST(req: Request) {
             text: line.text,
             audio_url: r2Url
           });
+          
         if (insertErr) {
           console.error('Failed to insert dialogue:', insertErr);
           throw insertErr;
