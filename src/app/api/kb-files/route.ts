@@ -3,7 +3,7 @@ import { listKnowledgeBaseFiles, PUBLIC_R2_URL } from '@/lib/r2';
 
 export async function GET() {
   try {
-    const files = await listKnowledgeBaseFiles('englishtest/kb/English/');
+    const files = await listKnowledgeBaseFiles('kb/English/');
     
     // Group files for frontend dropdowns
     const parsedFiles = files

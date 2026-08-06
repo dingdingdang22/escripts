@@ -41,7 +41,7 @@ export async function uploadAudioToR2(buffer: Buffer, filename?: string): Promis
 /**
  * 列出 R2 中的知识点 Markdown 文件
  */
-export async function listKnowledgeBaseFiles(prefix: string = 'englishtest/kb/English/') {
+export async function listKnowledgeBaseFiles(prefix: string = 'kb/English/') {
   const command = new ListObjectsV2Command({
     Bucket: BUCKET_NAME,
     Prefix: prefix,
