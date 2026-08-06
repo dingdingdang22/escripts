@@ -91,9 +91,11 @@ export async function POST(req: Request) {
         .from('scripts')
         .insert({
           unit_id: unitId,
+          module_name: moduleName,
           title: scriptData.title,
           custom_character_setting: customSetting,
-          difficulty_level: scriptData.difficulty_level
+          difficulty_level: scriptData.difficulty_level,
+          teacher_gender: scriptData.teacher_gender
         })
         .select()
         .single();
