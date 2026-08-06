@@ -56,8 +56,7 @@ export async function POST(req: Request) {
       - 100% coverage of the core vocabulary and target sentences extracted from the provided knowledge base content.
       - Difficulty should be appropriate for ${gradeVolume}.
       - The dialogue MUST be a peer conversation between two student roles: "role_a" and "role_b".
-      - Provide attractive, creative character names for role_a (e.g. "Li Hua") and role_b (e.g. "Peter").
-      - Provide an engaging AI theme for the module (e.g. "Module 1: Wonders of the World").
+      - Provide a concise, attractive AI theme name WITHOUT any "Module X:" or "Unit X:" prefix (e.g. "Public Holidays" or "Wonders of the World").
       - Dynamically determine a descriptive 'title' for this specific script based on the key points.
       
       Return ONLY a JSON array of 3 script objects. Do not include markdown formatting or backticks.
@@ -65,7 +64,7 @@ export async function POST(req: Request) {
       [
         {
           "title": "Script 1: Exploring Stonehenge",
-          "ai_module_theme": "Module 1: Wonders of the World",
+          "ai_module_theme": "Public Holidays",
           "difficulty_level": "easy",
           "role_a_name": "Li Hua",
           "role_b_name": "Peter",

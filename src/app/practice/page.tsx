@@ -215,7 +215,9 @@ export default function PracticePage() {
               >
                 <div className="space-y-1">
                   <span className="text-xs font-semibold text-blue-600 uppercase tracking-wider">AI 主题场景</span>
-                  <h3 className="text-xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors">{m.name}</h3>
+                  <h3 className="text-xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
+                    {m.name.replace(/^(Module|Unit)\s*\d+[:：\s]*/i, '')}
+                  </h3>
                   <p className="text-xs text-gray-400">包含 {m.count} 个精品朗读对话</p>
                 </div>
                 <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-all">
