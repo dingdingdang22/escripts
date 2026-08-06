@@ -23,7 +23,13 @@ export default function AdminPage() {
         if (data.success) {
           if (data.files.length > 0) {
             setKbFiles(data.files);
-            setFormData(prev => ({ ...prev, kbUrls: [data.files[0].url] }));
+            const first = data.files[0];
+            const autoModule = `${first.gradeVolumeName || ''} · ${first.moduleName || ''}`;
+            setFormData(prev => ({ 
+              ...prev, 
+              kbUrls: [first.url],
+              moduleName: autoModule
+            }));
           }
         } else {
           console.error('API Error:', data.error);
@@ -38,6 +44,30 @@ export default function AdminPage() {
     }
     loadFiles();
   }, []);
+
+  const handleFileToggle = (url: string) => {
+    setFormData(prev => {
+      const exists = prev.kbUrls.includes(url);
+      const newUrls = exists 
+        ? prev.kbUrls.filter(u => u !== url)
+        : [...prev.kbUrls, url];
+      
+      // Find the first selected file to auto-update module name
+      let autoModule = prev.moduleName;
+      if (newUrls.length > 0) {
+        const selectedFile = kbFiles.find(f => f.url === newUrls[0]);
+        if (selectedFile) {
+          autoModule = `${selectedFile.gradeVolumeName || ''} · ${selectedFile.moduleName || ''}`;
+        }
+      }
+
+      return {
+        ...prev,
+        kbUrls: newUrls,
+        moduleName: autoModule
+      };
+    });
+  };
 
   const handleGenerate = async () => {
     setLoading(true);
@@ -90,22 +120,9 @@ export default function AdminPage() {
                         type="checkbox"
                         className="mt-1 h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
                         checked={isChecked}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setFormData(prev => ({ 
-                              ...prev, 
-                              kbUrls: [...prev.kbUrls, f.url],
-                              moduleName: prev.kbUrls.length === 0 ? f.label : prev.moduleName // Auto-fill module on first select
-                            }));
-                          } else {
-                            setFormData(prev => ({ 
-                              ...prev, 
-                              kbUrls: prev.kbUrls.filter(url => url !== f.url) 
-                            }));
-                          }
-                        }}
+                        onChange={() => handleFileToggle(f.url)}
                       />
-                      <span className="text-sm text-gray-800 break-all">{f.filename}</span>
+                      <span className="text-sm text-gray-800 break-all">{f.label}</span>
                     </label>
                   );
                 })}

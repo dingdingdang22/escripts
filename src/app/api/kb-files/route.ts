@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { listKnowledgeBaseFiles, PUBLIC_R2_URL } from '@/lib/r2';
+import { parseCurriculumFilename } from '@/lib/curriculumParser';
 
 export async function GET() {
   try {
@@ -13,33 +14,18 @@ export async function GET() {
       const filename = key.split('/').pop() || '';
       const url = `${PUBLIC_R2_URL}/${key}`;
       
-      // Attempt to parse metadata from filename
-      let grade = 'Unknown';
-      let theme = 'Unknown';
-      let kp = 'Unknown';
-      let label = filename;
-
-      // Extract parts like 9a01_001
-      const match = filename.match(/_([1-9][a-z])(\d{2})_(\d+)\.md/i);
-      if (match) {
-        const gradeStr = match[1]; // e.g. 9a
-        const themeStr = match[2]; // e.g. 01
-        const kpStr = match[3];    // e.g. 001
-        
-        grade = gradeStr; // Can map to "9年级上" on frontend
-        theme = `Theme ${parseInt(themeStr, 10)}`;
-        kp = `Knowledge Point ${parseInt(kpStr, 10)}`;
-        label = `Grade ${gradeStr.toUpperCase()} - ${theme} - ${kp}`;
-      }
+      const parsed = parseCurriculumFilename(filename);
 
       return {
         key,
         filename,
         url,
-        grade,
-        theme,
-        kp,
-        label,
+        gradeVolumeCode: parsed.gradeVolumeCode,
+        gradeVolumeName: parsed.gradeVolumeName,
+        moduleName: parsed.moduleName,
+        kpName: parsed.kpName,
+        displayName: parsed.displayName,
+        label: `${parsed.displayName} (${filename})`,
       };
     });
 

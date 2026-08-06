@@ -4,12 +4,17 @@ import { supabase } from '@/lib/supabase';
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
+    const selectedGrade = searchParams.get('grade_volume');
     const selectedModule = searchParams.get('module_name');
 
     // Fetch scripts with their dialogues embedded
     let query = supabase
       .from('scripts')
       .select('*, dialogues(*)');
+
+    if (selectedGrade && selectedGrade !== 'all') {
+      query = query.eq('grade_volume', selectedGrade);
+    }
 
     if (selectedModule && selectedModule !== 'all') {
       query = query.eq('module_name', selectedModule);

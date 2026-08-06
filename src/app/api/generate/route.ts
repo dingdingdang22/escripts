@@ -13,6 +13,8 @@ if (!apiKey) {
 }
 const ai = new GoogleGenAI(apiKey ? { apiKey } : {});
 
+import { parseCurriculumFilename } from '@/lib/curriculumParser';
+
 export async function POST(req: Request) {
   try {
     const { unitId, moduleName, kbUrls, customSetting } = await req.json();
@@ -20,6 +22,11 @@ export async function POST(req: Request) {
     if (!kbUrls || kbUrls.length === 0) {
       return NextResponse.json({ error: 'Missing kbUrls' }, { status: 400 });
     }
+
+    // Infer Grade & Volume from the first selected file
+    const firstFilename = (kbUrls[0] || '').split('/').pop() || '';
+    const parsedCurriculum = parseCurriculumFilename(firstFilename);
+    const gradeVolume = parsedCurriculum.gradeVolumeName;
 
     // 1. Fetch Knowledge Base Markdown from ALL selected URLs
     let kbContent = '';
@@ -35,35 +42,36 @@ export async function POST(req: Request) {
     // 2. Generate Scripts using Gemini (Student-to-Student Dialogue)
     const prompt = `
       You are an expert English teacher creating speaking practice dialogues for students learning the FLTRP (外研版) curriculum.
-      Module: ${moduleName}
-      Custom Character Setting: ${customSetting}
+      Grade & Volume: ${gradeVolume}
+      Custom Setting: ${customSetting}
       
-      Below is the curriculum knowledge point content in Markdown format. 
-      It contains the core vocabulary and target sentences for this specific lesson:
+      Below is the curriculum knowledge point content in Markdown format:
       
       --- KNOWLEDGE BASE ---
       ${kbContent}
       ----------------------
       
-      Generate exactly 3 unique, independent dialogue scripts between TWO STUDENTS (e.g. Li Hua and Meimei, or Student A and Student B).
+      Generate exactly 3 unique, independent dialogue scripts between TWO STUDENTS.
       Constraints:
       - 100% coverage of the core vocabulary and target sentences extracted from the provided knowledge base content.
-      - Difficulty should be appropriate for the grade level inferred from the knowledge base content.
+      - Difficulty should be appropriate for ${gradeVolume}.
       - The dialogue MUST be a peer conversation between two student roles: "role_a" and "role_b".
-      - Provide friendly character names for role_a (e.g. "Li Hua") and role_b (e.g. "Meimei").
-      - Dynamically determine a descriptive 'title' based on the grade, theme, and key points covered.
+      - Provide attractive, creative character names for role_a (e.g. "Li Hua") and role_b (e.g. "Peter").
+      - Provide an engaging AI theme for the module (e.g. "Module 1: Wonders of the World").
+      - Dynamically determine a descriptive 'title' for this specific script based on the key points.
       
       Return ONLY a JSON array of 3 script objects. Do not include markdown formatting or backticks.
       Format:
       [
         {
-          "title": "Grade 9 - Unit 1 - Introduction",
+          "title": "Script 1: Exploring Stonehenge",
+          "ai_module_theme": "Module 1: Wonders of the World",
           "difficulty_level": "easy",
           "role_a_name": "Li Hua",
-          "role_b_name": "Meimei",
+          "role_b_name": "Peter",
           "dialogues": [
-            { "sequence": 1, "role": "role_a", "text": "Hello Meimei! How are you today?" },
-            { "sequence": 2, "role": "role_b", "text": "I am fine, Li Hua! Are you ready for school?" }
+            { "sequence": 1, "role": "role_a", "text": "Hello Peter! Have you ever seen Stonehenge?" },
+            { "sequence": 2, "role": "role_b", "text": "Yes, Li Hua! It is one of the greatest wonders in the UK." }
           ]
         }
       ]
@@ -87,14 +95,19 @@ export async function POST(req: Request) {
 
     // 3. Process each script
     for (const scriptData of scriptsData) {
+      const finalModuleName = scriptData.ai_module_theme || moduleName || parsedCurriculum.moduleName;
+
       // Save Script Metadata to Supabase
       const { data: scriptRecord, error: scriptErr } = await supabase
         .from('scripts')
         .insert({
           unit_id: unitId,
-          module_name: moduleName,
+          grade_volume: gradeVolume,
+          module_name: finalModuleName,
           title: scriptData.title,
-          custom_character_setting: `Role A: ${scriptData.role_a_name || 'Student A'}, Role B: ${scriptData.role_b_name || 'Student B'}`,
+          role_a_name: scriptData.role_a_name || 'Student A',
+          role_b_name: scriptData.role_b_name || 'Student B',
+          custom_character_setting: customSetting,
           difficulty_level: scriptData.difficulty_level,
           teacher_gender: 'mixed'
         })
