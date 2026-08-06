@@ -2,12 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import ConversationPractice from '@/components/ConversationPractice';
-import { Loader2, RefreshCcw, User, BookOpen, Sparkles, ArrowRight, Layers, GraduationCap } from 'lucide-react';
+import { Loader2, RefreshCcw, User, BookOpen, Sparkles, ArrowRight, Layers, GraduationCap, FileText, MessageSquare } from 'lucide-react';
 
 export default function PracticePage() {
   // Step state: 
-  // 1 = Select Grade, 2 = Select AI Module/Theme, 3 = Select AI Character, 4 = Practice, 5 = Complete
-  const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
+  // 1 = Select Grade, 2 = Select AI Module/Theme, 3 = Select Script, 4 = Select AI Character, 5 = Practice, 6 = Complete
+  const [step, setStep] = useState<1 | 2 | 3 | 4 | 5 | 6>(1);
 
   // Level data states
   const [grades, setGrades] = useState<{ name: string; count: number }[]>([]);
@@ -16,13 +16,14 @@ export default function PracticePage() {
   const [modules, setModules] = useState<{ name: string; count: number }[]>([]);
   const [selectedModule, setSelectedModule] = useState<string>('');
 
+  // Scripts under selected module
+  const [scripts, setScripts] = useState<any[]>([]);
+  const [scriptData, setScriptData] = useState<any>(null);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  // Randomly fetched script object
-  const [scriptData, setScriptData] = useState<any>(null);
   const [selectedRole, setSelectedRole] = useState<'role_a' | 'role_b'>('role_a');
-  
   const [score, setScore] = useState(0);
 
   // 1. Fetch available grades on mount
@@ -69,13 +70,13 @@ export default function PracticePage() {
     }
   };
 
-  // 3. Fetch a random script under the selected grade & module
+  // 3. Fetch scripts list under the selected grade & module (User will manually choose one next)
   const handleSelectModule = async (moduleName: string) => {
     setSelectedModule(moduleName);
     setLoading(true);
     setError(null);
     try {
-      const url = `/api/practice/random?grade_volume=${encodeURIComponent(selectedGrade)}&module_name=${encodeURIComponent(moduleName)}`;
+      const url = `/api/practice/scripts?grade_volume=${encodeURIComponent(selectedGrade)}&module_name=${encodeURIComponent(moduleName)}`;
       const res = await fetch(url, { cache: 'no-store' });
       const data = await res.json();
       
@@ -83,9 +84,14 @@ export default function PracticePage() {
         setError(data.error || '未找到该主题下的有效剧本');
         return;
       }
+
+      if (!data.scripts || data.scripts.length === 0) {
+        setError('该主题下暂无可练习的精编剧本对话');
+        return;
+      }
       
-      setScriptData(data.script);
-      setStep(3); // Go to AI Character Choice
+      setScripts(data.scripts);
+      setStep(3); // Go to Script Selection Step
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -93,14 +99,20 @@ export default function PracticePage() {
     }
   };
 
+  // 4. User chooses a specific script
+  const handleSelectScript = (script: any) => {
+    setScriptData(script);
+    setStep(4); // Go to AI Character Selection Step
+  };
+
   const handleStartPractice = (role: 'role_a' | 'role_b') => {
     setSelectedRole(role);
-    setStep(4); // Start practice
+    setStep(5); // Start practice
   };
 
   const handleComplete = (finalScore: number) => {
     setScore(finalScore);
-    setStep(5);
+    setStep(6);
   };
 
   return (
@@ -153,12 +165,12 @@ export default function PracticePage() {
                 <span className="p-3 bg-white/20 rounded-2xl backdrop-blur-md">
                   <Sparkles className="w-6 h-6 text-yellow-300" />
                 </span>
-                <span className="text-xs bg-white/30 px-3 py-1 rounded-full font-bold">全库随机</span>
+                <span className="text-xs bg-white/30 px-3 py-1 rounded-full font-bold">全库检索</span>
               </div>
               <div>
-                <h3 className="text-xl font-bold mb-1">任意年级随机练习</h3>
+                <h3 className="text-xl font-bold mb-1">所有年级通用主题</h3>
                 <p className="text-blue-100 text-sm flex items-center group-hover:translate-x-1 transition-transform">
-                  不限年级跨册挑战 <ArrowRight className="w-4 h-4 ml-1" />
+                  查看全库所有课文主题 <ArrowRight className="w-4 h-4 ml-1" />
                 </p>
               </div>
             </div>
@@ -196,13 +208,13 @@ export default function PracticePage() {
           <div className="text-center space-y-4">
             <div className="inline-flex items-center space-x-2 px-4 py-1.5 rounded-full bg-indigo-100 text-indigo-700 font-semibold text-sm">
               <Layers className="w-4 h-4" />
-              <span>第二步：选择课文主题 ({selectedGrade})</span>
+              <span>第二步：选择课文主题 ({selectedGrade === 'all' ? '全部年级' : selectedGrade})</span>
             </div>
             <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900">
-              请选择【{selectedGrade}】的学习主题
+              请选择【{selectedGrade === 'all' ? '全部' : selectedGrade}】的学习主题
             </h2>
             <p className="text-gray-600">
-              选定主题后，系统将为您随机分发该主题下的精编场景对话
+              选定主题后，您可以自行选择该主题下想要练习的具体课文对话
             </p>
           </div>
 
@@ -238,13 +250,81 @@ export default function PracticePage() {
         </div>
       )}
 
-      {/* STEP 3: Select AI-Generated Character */}
-      {!loading && !error && step === 3 && scriptData && (
+      {/* STEP 3: Select Specific Script/Dialogue */}
+      {!loading && !error && step === 3 && (
+        <div className="w-full max-w-4xl mx-auto space-y-8 animate-in fade-in zoom-in duration-500">
+          <div className="text-center space-y-4">
+            <div className="inline-flex items-center space-x-2 px-4 py-1.5 rounded-full bg-blue-100 text-blue-700 font-semibold text-sm">
+              <FileText className="w-4 h-4" />
+              <span>第三步：选择课文对话剧本</span>
+            </div>
+            <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900">
+              {selectedModule.replace(/^(Module|Unit)\s*\d+[:：\s]*/i, '')} - 剧本列表
+            </h2>
+            <p className="text-gray-600">
+              点击下方列表中的剧本，自主决定本次练习的朗读场景
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+            {scripts.map((s) => (
+              <div 
+                key={s.id}
+                onClick={() => handleSelectScript(s)}
+                className="bg-white p-6 rounded-3xl border border-gray-100 shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-1 cursor-pointer flex flex-col justify-between group min-h-[160px]"
+              >
+                <div className="space-y-3">
+                  <div className="flex justify-between items-start">
+                    <span className="p-2.5 bg-blue-50 text-blue-600 rounded-2xl">
+                      <FileText className="w-5 h-5" />
+                    </span>
+                    {s.difficulty_level && (
+                      <span className="text-xs bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full font-medium capitalize">
+                        {s.difficulty_level} 难度
+                      </span>
+                    )}
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-2">
+                      {s.title}
+                    </h3>
+                    <p className="text-xs text-gray-500 mt-1">
+                      角色: <span className="font-semibold text-gray-700">{s.role_a_name || '角色A'}</span> 与 <span className="font-semibold text-gray-700">{s.role_b_name || '角色B'}</span>
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex justify-between items-center pt-4 border-t border-gray-100 mt-4">
+                  <div className="flex items-center text-xs text-gray-400">
+                    <MessageSquare className="w-4 h-4 mr-1 text-gray-400" />
+                    <span>{s.dialogues?.length || 0} 句互动台词</span>
+                  </div>
+                  <span className="text-xs text-blue-600 font-bold flex items-center group-hover:translate-x-1 transition-transform">
+                    选择此剧本 <ArrowRight className="w-4 h-4 ml-1" />
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="text-center pt-4">
+            <button 
+              onClick={() => setStep(2)}
+              className="text-gray-500 hover:text-gray-700 text-sm font-medium underline"
+            >
+              ← 返回重选主题
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* STEP 4: Select AI-Generated Character */}
+      {!loading && !error && step === 4 && scriptData && (
         <div className="w-full max-w-2xl mx-auto space-y-8 animate-in fade-in zoom-in duration-500">
           <div className="text-center space-y-3">
             <div className="inline-flex items-center space-x-2 px-4 py-1.5 rounded-full bg-green-100 text-green-700 font-semibold text-sm">
               <User className="w-4 h-4" />
-              <span>第三步：选择你想扮演的角色</span>
+              <span>第四步：选择你想扮演的角色</span>
             </div>
             <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900">
               {scriptData.title}
@@ -300,17 +380,17 @@ export default function PracticePage() {
 
           <div className="text-center pt-4">
             <button 
-              onClick={() => setStep(2)}
+              onClick={() => setStep(3)}
               className="text-gray-500 hover:text-gray-700 text-sm font-medium underline"
             >
-              ← 返回重选主题
+              ← 返回重选剧本
             </button>
           </div>
         </div>
       )}
 
-      {/* STEP 4: Interactive Practice */}
-      {!loading && !error && step === 4 && scriptData && (
+      {/* STEP 5: Interactive Practice */}
+      {!loading && !error && step === 5 && scriptData && (
         <div className="w-full h-full flex flex-col justify-center animate-in fade-in zoom-in duration-500">
            <ConversationPractice 
               dialogues={scriptData.dialogues}
@@ -320,8 +400,8 @@ export default function PracticePage() {
         </div>
       )}
 
-      {/* STEP 5: Completion Screen */}
-      {step === 5 && (
+      {/* STEP 6: Completion Screen */}
+      {step === 6 && (
         <div className="text-center space-y-6 animate-in slide-in-from-bottom-8 duration-700 bg-white p-10 rounded-3xl shadow-2xl max-w-md">
           <div className="w-28 h-28 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
             <span className="text-6xl">🎉</span>
@@ -341,8 +421,14 @@ export default function PracticePage() {
               互换角色再次练习 (Role Swap)
             </button>
             <button 
+              onClick={() => setStep(3)}
+              className="bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold py-3 rounded-full transition-colors"
+            >
+              重选剧本对话
+            </button>
+            <button 
               onClick={() => setStep(1)}
-              className="bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold py-3.5 px-8 rounded-full transition-colors"
+              className="bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold py-3 rounded-full transition-colors"
             >
               返回年级列表
             </button>
