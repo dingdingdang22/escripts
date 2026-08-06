@@ -120,16 +120,19 @@ export async function POST(req: Request) {
         }
 
         // Save Dialogue to Supabase
-        await supabase
+        const { error: insertErr } = await supabase
           .from('dialogues')
           .insert({
             script_id: scriptRecord.id,
-            sequence_order: line.sequence,
-            character_role: line.role,
-            character_name: line.role === 'system' ? 'System' : 'User',
-            text_content: line.text,
-            audio_r2_url: r2Url
+            sequence: line.sequence || 1,
+            role: line.role,
+            text: line.text,
+            audio_url: r2Url
           });
+        if (insertErr) {
+          console.error('Failed to insert dialogue:', insertErr);
+          throw insertErr;
+        }
       }
       
       results.push(scriptRecord);
