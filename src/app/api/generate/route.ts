@@ -46,6 +46,7 @@ export async function POST(req: Request) {
       - 100% coverage of the core vocabulary and target sentences extracted from the provided knowledge base.
       - Difficulty should be appropriate for the grade level inferred from the knowledge base.
       - One character MUST be named 'System' (this is the AI/teacher), and the other 'User' (this is the student).
+      - Based on the custom setting, determine if the 'System' (teacher) character should be male or female, and set 'teacher_gender'.
       
       Return ONLY a JSON array of 3 script objects. Do not include markdown formatting or backticks.
       Format:
@@ -53,6 +54,7 @@ export async function POST(req: Request) {
         {
           "title": "Script Title 1",
           "difficulty_level": "easy",
+          "teacher_gender": "female",
           "dialogues": [
             { "sequence": 1, "role": "system", "text": "Hello! How are you today?" },
             { "sequence": 2, "role": "user", "text": "I am fine, thank you." }
@@ -71,14 +73,13 @@ export async function POST(req: Request) {
     resultText = resultText.replace(/^```json\s*/, '').replace(/```\s*$/, '').trim();
     
     const scriptsData = JSON.parse(resultText);
-    const tts = new EdgeTTS({
-        voice: 'en-US-AriaNeural'
-    });
-
     const results = [];
 
     // 2. Process each script
     for (const scriptData of scriptsData) {
+      // Set TTS Voice based on generated gender
+      const voice = scriptData.teacher_gender === 'male' ? 'en-US-GuyNeural' : 'en-US-AriaNeural';
+      const tts = new EdgeTTS({ voice });
       // Save Script Metadata to Supabase
       const { data: scriptRecord, error: scriptErr } = await supabase
         .from('scripts')
