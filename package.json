@@ -3,10 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "wrangler pages dev dist",
+    "deploy": "wrangler pages deploy dist"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1103.0",
@@ -16,20 +16,24 @@
     "@types/uuid": "^10.0.0",
     "framer-motion": "^13.0.0",
     "lucide-react": "^1.28.0",
-    "next": "16.3.0",
     "node-edge-tts": "^1.2.10",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "react-router-dom": "^7.18.2",
     "uuid": "^14.0.1"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260804.1",
     "@tailwindcss/postcss": "^4",
+    "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^6.0.5",
     "eslint": "^9",
-    "eslint-config-next": "16.3.0",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vite": "^8.2.1",
+    "wrangler": "^4.119.0"
   }
 }

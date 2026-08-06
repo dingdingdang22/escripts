@@ -184,7 +184,7 @@ export default function ConversationPractice({ dialogues, userRole = 'role_a', o
         });
 
         if (res.ok) {
-          const data = await res.json();
+          const data: any = await res.json();
           if (data.success && data.evaluation) {
             evalResult = data.evaluation;
           }
@@ -583,3 +583,4 @@ export default function ConversationPractice({ dialogues, userRole = 'role_a', o
     </div>
   );
 }
+
