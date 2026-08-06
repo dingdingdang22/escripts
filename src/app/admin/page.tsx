@@ -11,7 +11,7 @@ export default function AdminPage() {
   const [formData, setFormData] = useState({
     unitId: '123e4567-e89b-12d3-a456-426614174000', // Mock UUID for MVP
     moduleName: 'Module 1',
-    kbUrl: '',
+    kbUrls: [] as string[],
     customSetting: 'At the school gate, friendly tone.',
   });
 
@@ -23,7 +23,7 @@ export default function AdminPage() {
         if (data.success) {
           if (data.files.length > 0) {
             setKbFiles(data.files);
-            setFormData(prev => ({ ...prev, kbUrl: data.files[0].url }));
+            setFormData(prev => ({ ...prev, kbUrls: [data.files[0].url] }));
           }
         } else {
           console.error('API Error:', data.error);
@@ -74,32 +74,44 @@ export default function AdminPage() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">选择知识点主题 (Select Knowledge Base)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">选择知识点主题 (Select Knowledge Base) [可多选]</label>
             {fetchingFiles ? (
               <div className="flex items-center space-x-2 text-sm text-gray-500">
                 <Loader2 className="animate-spin h-4 w-4" /> <span>加载云端知识点...</span>
               </div>
             ) : (
-              <select 
-                className="w-full border-gray-300 rounded-md shadow-sm p-2 border focus:ring-blue-500 focus:border-blue-500"
-                value={formData.kbUrl}
-                onChange={(e) => {
-                  const selectedFile = kbFiles.find(f => f.url === e.target.value);
-                  setFormData({
-                    ...formData, 
-                    kbUrl: e.target.value,
-                    // Auto-fill module name based on selected file label
-                    moduleName: selectedFile ? selectedFile.label : formData.moduleName
-                  });
-                }}
-              >
-                {kbFiles.length === 0 && <option value="">未找到任何文件</option>}
-                {kbFiles.map((f, i) => (
-                  <option key={i} value={f.url}>{f.label} ({f.filename})</option>
-                ))}
-              </select>
+              <div className="w-full border-gray-300 rounded-md shadow-sm border p-2 max-h-60 overflow-y-auto bg-white">
+                {kbFiles.length === 0 && <p className="text-sm text-gray-500 p-2">未找到任何 .md 文件</p>}
+                {kbFiles.map((f, i) => {
+                  const isChecked = formData.kbUrls.includes(f.url);
+                  return (
+                    <label key={i} className="flex items-start space-x-3 p-2 hover:bg-gray-50 rounded cursor-pointer transition-colors border-b border-gray-100 last:border-0">
+                      <input 
+                        type="checkbox"
+                        className="mt-1 h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                        checked={isChecked}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setFormData(prev => ({ 
+                              ...prev, 
+                              kbUrls: [...prev.kbUrls, f.url],
+                              moduleName: prev.kbUrls.length === 0 ? f.label : prev.moduleName // Auto-fill module on first select
+                            }));
+                          } else {
+                            setFormData(prev => ({ 
+                              ...prev, 
+                              kbUrls: prev.kbUrls.filter(url => url !== f.url) 
+                            }));
+                          }
+                        }}
+                      />
+                      <span className="text-sm text-gray-800 break-all">{f.filename}</span>
+                    </label>
+                  );
+                })}
+              </div>
             )}
-            <p className="text-xs text-gray-500 mt-1">下拉菜单自动读取 R2 存储桶中的所有 Markdown 文件。</p>
+            <p className="text-xs text-gray-500 mt-1">勾选一个或多个 Markdown 文件，AI 将综合这些知识点生成剧情。</p>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">自定义情景/角色设定</label>

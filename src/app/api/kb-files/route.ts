@@ -3,12 +3,12 @@ import { listKnowledgeBaseFiles, PUBLIC_R2_URL } from '@/lib/r2';
 
 export async function GET() {
   try {
-    const files = await listKnowledgeBaseFiles('');
+    const files = await listKnowledgeBaseFiles('englishtest/kb/English/');
     
     // Group files for frontend dropdowns
-    // Filename example: mt_jh_eng_wy_9a01_001.md
-    
-    const parsedFiles = files.map(file => {
+    const parsedFiles = files
+      .filter(f => f.Key?.endsWith('.md'))
+      .map(file => {
       const key = file.Key || '';
       const filename = key.split('/').pop() || '';
       const url = `${PUBLIC_R2_URL}/${key}`;

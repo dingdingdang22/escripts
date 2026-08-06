@@ -15,18 +15,22 @@ const ai = new GoogleGenAI(apiKey ? { apiKey } : {});
 
 export async function POST(req: Request) {
   try {
-    const { unitId, moduleName, kbUrl, customSetting } = await req.json();
+    const { unitId, moduleName, kbUrls, customSetting } = await req.json();
 
-    if (!unitId || !kbUrl) {
-      return NextResponse.json({ error: 'Missing parameters (kbUrl is required)' }, { status: 400 });
+    if (!kbUrls || kbUrls.length === 0) {
+      return NextResponse.json({ error: 'Missing kbUrls' }, { status: 400 });
     }
 
-    // 1. Fetch Markdown Content from R2
-    const mdRes = await fetch(kbUrl);
-    if (!mdRes.ok) {
-       return NextResponse.json({ error: 'Failed to fetch knowledge base markdown from provided URL' }, { status: 400 });
+    // 1. Fetch Knowledge Base Markdown from ALL selected URLs
+    let kbContent = '';
+    for (const url of kbUrls) {
+      const kbRes = await fetch(url);
+      if (kbRes.ok) {
+        kbContent += `\n\n--- Source: ${url.split('/').pop()} ---\n` + await kbRes.text();
+      } else {
+        console.warn(`Failed to fetch kb content from ${url}`);
+      }
     }
-    const kbContent = await mdRes.text();
 
     // 2. Generate Scripts using Gemini
     const prompt = `
@@ -43,16 +47,17 @@ export async function POST(req: Request) {
       
       Generate exactly 3 unique, independent dialogue scripts. 
       Constraints:
-      - 100% coverage of the core vocabulary and target sentences extracted from the provided knowledge base.
-      - Difficulty should be appropriate for the grade level inferred from the knowledge base.
+      - 100% coverage of the core vocabulary and target sentences extracted from the provided knowledge base content.
+      - Difficulty should be appropriate for the grade level inferred from the knowledge base content.
       - One character MUST be named 'System' (this is the AI/teacher), and the other 'User' (this is the student).
       - Based on the custom setting, determine if the 'System' (teacher) character should be male or female, and set 'teacher_gender'.
+      - Dynamically determine a descriptive 'title' based on the grade, theme, and key points covered. Do NOT use generic names like "Script Title 1".
       
       Return ONLY a JSON array of 3 script objects. Do not include markdown formatting or backticks.
       Format:
       [
         {
-          "title": "Script Title 1",
+          "title": "Grade 9 - Unit 1 - Introduction",
           "difficulty_level": "easy",
           "teacher_gender": "female",
           "dialogues": [
