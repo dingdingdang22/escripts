@@ -44,24 +44,86 @@ CREATE TABLE IF NOT EXISTS public.dialogues (
 -- 5. User Practices (练习记录)
 CREATE TABLE IF NOT EXISTS public.practice_logs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id TEXT NOT NULL, -- 暂用简单字符串，实际可对接 Auth
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     script_id UUID REFERENCES public.scripts(id) ON DELETE CASCADE,
     accuracy_score FLOAT NOT NULL,
     fluency_score FLOAT NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- RLS (Row Level Security) - For MVP we can allow all access, but better to lock down
+-- 6. User Roles (角色权限)
+CREATE TABLE IF NOT EXISTS public.user_roles (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    role TEXT NOT NULL CHECK (role IN ('admin', 'user')) DEFAULT 'user',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(user_id)
+);
+
+-- Function to create a user profile/role automatically when a new user signs up
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger AS $$
+BEGIN
+  INSERT INTO public.user_roles (user_id, role)
+  VALUES (new.id, 'user');
+  RETURN new;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Trigger to call the function on signup
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+
+-- Helper function to check if the current user is an admin
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS BOOLEAN AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM public.user_roles
+    WHERE user_id = auth.uid() AND role = 'admin'
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- RLS (Row Level Security)
 ALTER TABLE public.grades ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.units ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.scripts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.dialogues ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.practice_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
 
--- Allow anon read access for MVP
-CREATE POLICY "Allow public read access on grades" ON public.grades FOR SELECT USING (true);
-CREATE POLICY "Allow public read access on units" ON public.units FOR SELECT USING (true);
-CREATE POLICY "Allow public read access on scripts" ON public.scripts FOR SELECT USING (true);
-CREATE POLICY "Allow public read access on dialogues" ON public.dialogues FOR SELECT USING (true);
-CREATE POLICY "Allow public read access on practice_logs" ON public.practice_logs FOR SELECT USING (true);
-CREATE POLICY "Allow public insert on practice_logs" ON public.practice_logs FOR INSERT WITH CHECK (true);
+-- Drop old policies if they exist (clean up before recreating)
+DROP POLICY IF EXISTS "Allow public read access on grades" ON public.grades;
+DROP POLICY IF EXISTS "Allow public read access on units" ON public.units;
+DROP POLICY IF EXISTS "Allow public read access on scripts" ON public.scripts;
+DROP POLICY IF EXISTS "Allow public read access on dialogues" ON public.dialogues;
+DROP POLICY IF EXISTS "Allow public read access on practice_logs" ON public.practice_logs;
+DROP POLICY IF EXISTS "Allow public insert on practice_logs" ON public.practice_logs;
+
+-- Grades Policies
+CREATE POLICY "Allow authenticated read on grades" ON public.grades FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Allow admin all on grades" ON public.grades FOR ALL TO authenticated USING (public.is_admin());
+
+-- Units Policies
+CREATE POLICY "Allow authenticated read on units" ON public.units FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Allow admin all on units" ON public.units FOR ALL TO authenticated USING (public.is_admin());
+
+-- Scripts Policies
+CREATE POLICY "Allow authenticated read on scripts" ON public.scripts FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Allow admin all on scripts" ON public.scripts FOR ALL TO authenticated USING (public.is_admin());
+
+-- Dialogues Policies
+CREATE POLICY "Allow authenticated read on dialogues" ON public.dialogues FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Allow admin all on dialogues" ON public.dialogues FOR ALL TO authenticated USING (public.is_admin());
+
+-- Practice Logs Policies
+CREATE POLICY "Users can insert their own practice logs" ON public.practice_logs FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can read their own practice logs" ON public.practice_logs FOR SELECT TO authenticated USING (auth.uid() = user_id);
+CREATE POLICY "Admin can read all practice logs" ON public.practice_logs FOR SELECT TO authenticated USING (public.is_admin());
+
+-- User Roles Policies
+CREATE POLICY "Users can read their own role" ON public.user_roles FOR SELECT TO authenticated USING (auth.uid() = user_id);
+CREATE POLICY "Admin can do all on user_roles" ON public.user_roles FOR ALL TO authenticated USING (public.is_admin());

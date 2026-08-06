@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import ConversationPractice from '@/components/ConversationPractice';
 import { Loader2, RefreshCcw, User, BookOpen, Sparkles, ArrowRight, Layers, GraduationCap, FileText, MessageSquare } from 'lucide-react';
+import { createClient } from '@/lib/supabase/client';
 
 export default function PracticePage() {
   // Step state: 
@@ -25,6 +26,8 @@ export default function PracticePage() {
   
   const [selectedRole, setSelectedRole] = useState<'role_a' | 'role_b'>('role_a');
   const [score, setScore] = useState(0);
+
+  const supabase = createClient();
 
   // 1. Fetch available grades on mount
   useEffect(() => {
@@ -110,9 +113,32 @@ export default function PracticePage() {
     setStep(5); // Start practice
   };
 
-  const handleComplete = (finalScore: number) => {
+  const handleComplete = async (finalScore: number, reports: any[]) => {
     setScore(finalScore);
     setStep(6);
+    
+    if (scriptData?.id) {
+      const avgAccuracy = reports.length > 0 
+        ? reports.reduce((acc, r) => acc + (r.evaluation?.accuracy_score || 0), 0) / reports.length 
+        : finalScore;
+      const avgFluency = reports.length > 0 
+        ? reports.reduce((acc, r) => acc + (r.evaluation?.fluency_score || 0), 0) / reports.length 
+        : finalScore;
+        
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase.from('practice_logs').insert({
+            user_id: user.id,
+            script_id: scriptData.id,
+            accuracy_score: Math.round(avgAccuracy),
+            fluency_score: Math.round(avgFluency)
+          });
+        }
+      } catch (err) {
+        console.error('Failed to save practice log', err);
+      }
+    }
   };
 
   return (
